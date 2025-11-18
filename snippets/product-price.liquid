@@ -1,0 +1,41 @@
+{% comment %}
+  Displays product pricing. Accepts either a variant or product object.
+{% endcomment %}
+{% if variant %}
+  {% assign target = variant %}
+  {% assign compare_price = variant.compare_at_price %}
+  {% assign price = variant.price %}
+  {% assign available = variant.available %}
+{% elsif product %}
+  {% assign target = product.selected_or_first_available_variant %}
+  {% assign compare_price = product.compare_at_price %}
+  {% assign price = product.price %}
+  {% assign available = product.available %}
+{% else %}
+  {% assign target = nil %}
+  {% assign compare_price = 0 %}
+  {% assign price = 0 %}
+  {% assign available = false %}
+{% endif %}
+
+<div class="product-price">
+  {% if compare_price > price %}
+    <span class="visually-hidden">{{ 'products.product.regular_price' | t }}</span>
+    <s class="product-price__sale">{{ compare_price | money }}</s>
+    <span class="visually-hidden">{{ 'products.product.sale_price' | t }}</span>
+    <span class="product-price__price">{{ price | money }}</span>
+  {% else %}
+    <span class="product-price__price">{{ price | money }}</span>
+  {% endif %}
+
+  {% if target.unit_price %}
+    <div class="product-price__unit">
+      {{ target.unit_price | money }}
+      <span>/</span>
+      {% if target.unit_price_measurement.reference_value != 1 %}
+        {{ target.unit_price_measurement.reference_value }}
+      {% endif %}
+      {{ target.unit_price_measurement.reference_unit }}
+    </div>
+  {% endif %}
+</div>

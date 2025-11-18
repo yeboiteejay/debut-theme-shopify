@@ -1,0 +1,330 @@
+{% comment %}
+  Collection template that displays each color variant as a separate product card.
+  Supports Color in any option position (Option1, Option2, or Option3).
+{% endcomment %}
+
+{{ 'collection-with-variants.css' | asset_url | stylesheet_tag }}
+
+{% assign products_per_page = section.settings.products_per_page | default: 24 %}
+{% paginate collection.products by products_per_page %}
+  <div data-section-id="{{ section.id }}" data-section-type="collection-template">
+    <header class="collection-header">
+      {% if section.settings.show_collection_image and collection.image %}
+        <div class="collection-hero">
+          <div class="collection-hero__image">
+            <img src="{{ collection.image | img_url: '2048x' }}"
+                 srcset="{{ collection.image | img_url: '2048x' }} 1x, {{ collection.image | img_url: '4096x' }} 2x"
+                 alt="{{ collection.image.alt | escape }}"
+                 loading="lazy">
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="page-width">
+        <div class="section-header text-center">
+          <h1>
+            <span class="visually-hidden">{{ 'collections.general.collection_label' | t }}: </span>
+            {{ collection.title }}
+          </h1>
+          {% if collection.description != blank %}
+            <div class="rte">
+              {{ collection.description }}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <div class="page-width">
+      <div class="collection-content">
+        <div class="filters-toolbar-wrapper">
+          <div class="collection-filters">
+            <div class="filters-toolbar">
+              <div class="filters-toolbar__item">
+                {% comment %} Calculate total color variant count {% endcomment %}
+                {% assign total_items = 0 %}
+                {% for product in collection.products %}
+                  {% if product.options contains 'Color' %}
+                    {% assign color_option_index = 0 %}
+                    {% for option in product.options %}
+                      {% if option == 'Color' %}
+                        {% assign color_option_index = forloop.index %}
+                        {% break %}
+                      {% endif %}
+                    {% endfor %}
+                    
+                    {% if color_option_index == 2 %}
+                      {% assign color_values = '' %}
+                      {% for variant in product.variants %}
+                        {% unless color_values contains variant.option2 %}
+                          {% assign total_items = total_items | plus: 1 %}
+                          {% assign color_values = color_values | append: variant.option2 | append: ',' %}
+                        {% endunless %}
+                      {% endfor %}
+                    {% elsif color_option_index == 1 %}
+                      {% assign color_values = '' %}
+                      {% for variant in product.variants %}
+                        {% unless color_values contains variant.option1 %}
+                          {% assign total_items = total_items | plus: 1 %}
+                          {% assign color_values = color_values | append: variant.option1 | append: ',' %}
+                        {% endunless %}
+                      {% endfor %}
+                    {% endif %}
+                  {% else %}
+                    {% comment %} Product has no color options, count as single item {% endcomment %}
+                    {% assign total_items = total_items | plus: 1 %}
+                  {% endif %}
+                {% endfor %}
+                
+                <span class="filters-toolbar__product-count">
+                  {{ total_items }}
+                  {% if total_items == 1 %}
+                    {{ 'collections.general.item_count.one' | t }}
+                  {% else %}
+                    {{ 'collections.general.item_count.other' | t }}
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="filters-toolbar__item">
+                <label for="SortBy" class="visually-hidden">{{ 'collections.sorting.title' | t }}</label>
+                <select name="sort_by" id="SortBy" class="filters-toolbar__input filters-toolbar__input--sort">
+                  {% assign sort_by = collection.sort_by | default: collection.default_sort_by %}
+                  {% for option in collection.sort_options %}
+                    <option value="{{ option.value }}"{% if option.value == sort_by %} selected="selected"{% endif %}>
+                      {{ option.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if collection.products.size == 0 %}
+          <div class="grid__item">
+            <div class="text-center">
+              <p>{{ 'collections.general.no_matches' | t }}</p>
+            </div>
+          </div>
+        {% else %}
+        <ul class="grid grid--uniform grid--view-items">
+          {% for product in collection.products %}
+            {% assign has_color = false %}
+            {% assign color_option_index = 0 %}
+            
+            {% for option in product.options %}
+              {% if option == 'Color' or option == 'Colour' %}
+                {% assign has_color = true %}
+                {% assign color_option_index = forloop.index %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+
+            {% if has_color %}
+              {% assign displayed_colors = '' %}
+
+              {% for variant in product.variants %}
+                {% assign color_value = '' %}
+                {% case color_option_index %}
+                  {% when 1 %}
+                    {% assign color_value = variant.option1 %}
+                  {% when 2 %}
+                    {% assign color_value = variant.option2 %}
+                  {% when 3 %}
+                    {% assign color_value = variant.option3 %}
+                {% endcase %}
+
+                {% unless displayed_colors contains color_value %}
+                  {% assign displayed_colors = displayed_colors | append: color_value | append: ',' %}
+                  {% assign color_variant = nil %}
+                  {% for v in product.variants %}
+                    {% assign v_color = '' %}
+                    {% case color_option_index %}
+                      {% when 1 %}
+                        {% assign v_color = v.option1 %}
+                      {% when 2 %}
+                        {% assign v_color = v.option2 %}
+                      {% when 3 %}
+                        {% assign v_color = v.option3 %}
+                    {% endcase %}
+                    
+                    {% if v_color == color_value %}
+                      {% if v.available %}
+                        {% assign color_variant = v %}
+                        {% break %}
+                      {% elsif color_variant == nil %}
+                        {% assign color_variant = v %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+
+
+                  <li class="grid__item grid__item--collection-template small--one-half medium-up--one-quarter">
+                    <div class="grid-view-item">
+                      <a class="grid-view-item__link grid-view-item__image-container" href="{{ product.url | within: collection }}?variant={{ color_variant.id }}">
+                        {% assign img_url = color_variant.featured_image | default: color_variant.image | default: product.featured_image %}
+                        {% if img_url %}
+                          {% assign img_alt = img_url.alt | default: product.title %}
+                          <div class="grid-view-item__image-wrapper">
+                            <div style="padding-top:{% unless img_url == blank %}{{ 1 | divided_by: img_url.aspect_ratio | times: 100 }}%{% else %}100%{% endunless %}">
+                              <img class="grid-view-item__image lazyload"
+                                   data-src="{{ img_url | img_url: '600x600' }}"
+                                   data-widths="[180, 360, 540, 720, 900, 1080, 1296, 1512, 1728, 1944, 2160, 2376, 2592, 2808, 3024]"
+                                   data-aspectratio="{{ img_url.aspect_ratio }}"
+                                   data-sizes="auto"
+                                   alt="{{ img_alt | escape }}">
+                            </div>
+                          </div>
+
+                          <noscript>
+                            <img class="grid-view-item__image" src="{{ img_url | img_url: '400x' }}" alt="{{ img_alt | escape }}">
+                          </noscript>
+                        {% else %}
+                          <div class="grid-view-item__image-wrapper">
+                            <div style="padding-top:100%">
+                              {{ 'product-1' | placeholder_svg_tag: 'grid-view-item__image' }}
+                            </div>
+                          </div>
+                        {% endif %}
+
+                        <div class="h4 grid-view-item__title">
+                          {{ product.title }}
+                          {% if color_value != blank and color_value != 'Default Title' %}
+                            - {{ color_value }}
+                          {% endif %}
+                        </div>
+
+                        {% if section.settings.show_vendor %}
+                          <div class="grid-view-item__vendor">{{ product.vendor }}</div>
+                        {% endif %}
+
+                        <div class="grid-view-item__meta">
+                          {% include 'product-price', variant: color_variant %}
+                        </div>
+                      </a>
+
+                      {% unless color_variant.available %}
+                        <div class="grid-view-item__sold-out">
+                          <p>{{ 'products.product.sold_out' | t }}</p>
+                        </div>
+                      {% endunless %}
+                      
+                      {% if color_variant.compare_at_price > color_variant.price %}
+                        <div class="grid-view-item__on-sale">
+                          {% assign savings = color_variant.compare_at_price | minus: color_variant.price | times: 100.0 | divided_by: color_variant.compare_at_price | round %}
+                          <p>{{ 'products.product.on_sale' | t }}</p>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </li>
+                {% endunless %}
+              {% endfor %}
+
+            {% else %}
+              <li class="grid__item grid__item--collection-template small--one-half medium-up--one-quarter">
+                <div class="grid-view-item">
+                  <a class="grid-view-item__link grid-view-item__image-container" href="{{ product.url | within: collection }}">
+                    {% assign img_url = product.featured_image %}
+                    {% if img_url %}
+                      {% assign img_alt = img_url.alt | default: product.title %}
+                      <div class="grid-view-item__image-wrapper">
+                        <div style="padding-top:{% unless img_url == blank %}{{ 1 | divided_by: img_url.aspect_ratio | times: 100 }}%{% else %}100%{% endunless %}">
+                          <img class="grid-view-item__image lazyload"
+                               data-src="{{ img_url | img_url: '600x600' }}"
+                               data-widths="[180, 360, 540, 720, 900, 1080, 1296, 1512, 1728, 1944, 2160, 2376, 2592, 2808, 3024]"
+                               data-aspectratio="{{ img_url.aspect_ratio }}"
+                               data-sizes="auto"
+                               alt="{{ img_alt | escape }}">
+                        </div>
+                      </div>
+
+                      <noscript>
+                        <img class="grid-view-item__image" src="{{ img_url | img_url: '400x' }}" alt="{{ img_alt | escape }}">
+                      </noscript>
+                    {% else %}
+                      <div class="grid-view-item__image-wrapper">
+                        <div style="padding-top:100%">
+                          {{ 'product-1' | placeholder_svg_tag: 'grid-view-item__image' }}
+                        </div>
+                      </div>
+                    {% endif %}
+
+                    <div class="h4 grid-view-item__title">{{ product.title }}</div>
+
+                    {% if section.settings.show_vendor %}
+                      <div class="grid-view-item__vendor">{{ product.vendor }}</div>
+                    {% endif %}
+
+                    <div class="grid-view-item__meta">
+                      {% include 'product-price' %}
+                    </div>
+                  </a>
+
+                  {% unless product.available %}
+                    <div class="grid-view-item__sold-out">
+                      <p>{{ 'products.product.sold_out' | t }}</p>
+                    </div>
+                  {% endunless %}
+                  
+                  {% if product.compare_at_price_min > product.price_min %}
+                    <div class="grid-view-item__on-sale">
+                      <p>{{ 'products.product.on_sale' | t }}</p>
+                    </div>
+                  {% endif %}
+                </div>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if paginate.pages > 1 %}
+          {% include 'pagination' %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endpaginate %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var sortSelect = document.getElementById('SortBy');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function(e) {
+        var url = new URL(window.location.href);
+        url.searchParams.set('sort_by', e.target.value);
+        window.location.href = url.toString();
+      });
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Collection with Variants",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_collection_image",
+      "label": "Show collection image",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "Show product vendors",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "Products per page",
+      "min": 8,
+      "max": 50,
+      "step": 4,
+      "default": 24
+    }
+  ]
+}
+{% endschema %}
